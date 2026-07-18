@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Math App">
+<meta name="theme-color" content="#0B0D11">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Mental Math</title>
+<style>
+:root{
+  --bg:#0B0D11;
+  --surface:#151922;
+  --surface-2:#1D222D;
+  --line:#272D3A;
+  --text:#E9ECF2;
+  --muted:#8B94A7;
+  --mint:#5EE9B5;
+  --violet:#9D8CFF;
+  --amber:#FFC24B;
+  --rose:#FF6B7A;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overscroll-behavior:none}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+  position:fixed;inset:0;overflow:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+.app{display:flex;flex-direction:column;height:100%}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(var(--safe-t) + 18px) 18px 24px}
+.page{display:none;flex-direction:column;height:100%}
+.page.on{display:flex}
+
+/* ---- headers ---- */
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:30px;letter-spacing:-.02em;margin:6px 0 20px;font-weight:650}
+h2{font-size:18px;letter-spacing:-.01em;margin:26px 0 12px;font-weight:600}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:15px;margin-bottom:14px}
+
+/* ---- cards ---- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;
+  display:flex;flex-direction:column;gap:8px;text-align:left;transition:transform .12s,border-color .12s}
+.card:active{transform:scale(.975);border-color:var(--mint)}
+.card.wide{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
+.card .glyph{font-family:var(--mono);font-size:22px;color:var(--mint)}
+.card .name{font-weight:600;font-size:16px}
+.card .sub{font-size:12.5px;color:var(--muted);line-height:1.45}
+.chev{color:var(--muted);font-size:20px}
+
+.tint-add .glyph{color:var(--mint)}
+.tint-sub .glyph{color:var(--violet)}
+.tint-mul .glyph{color:var(--amber)}
+.tint-div .glyph{color:#6FD3FF}
+.tint-pct .glyph{color:var(--rose)}
+
+/* ---- stats strip ---- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;text-align:center}
+.stat b{display:block;font-family:var(--mono);font-size:22px;font-weight:600}
+.stat span{font-size:11px;color:var(--muted);letter-spacing:.04em}
+
+/* ---- level rows ---- */
+.row{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  padding:15px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.row:active{border-color:var(--mint)}
+.row .l{display:flex;flex-direction:column;gap:3px}
+.row .t{font-weight:560;font-size:15.5px}
+.row .d{font-size:12.5px;color:var(--muted)}
+.pill{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);
+  border-radius:999px;padding:4px 9px;white-space:nowrap}
+
+/* ---- quiz ---- */
+#quiz{padding:calc(var(--safe-t) + 10px) 0 0}
+.qbar{display:flex;align-items:center;gap:12px;padding:0 16px 10px}
+.qbar button{color:var(--muted);font-size:20px;padding:6px}
+.track{flex:1;height:4px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.fill{height:100%;background:var(--mint);width:0;transition:width .25s}
+.count{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.qbody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px;gap:18px}
+.qlabel{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center}
+.prompt{font-family:var(--mono);font-size:clamp(30px,9vw,46px);font-weight:600;letter-spacing:-.01em;text-align:center;line-height:1.25}
+.prompt small{display:block;font-family:var(--sans);font-size:14px;font-weight:400;color:var(--muted);line-height:1.5;margin-top:10px;max-width:22em}
+.entry{font-family:var(--mono);font-size:34px;min-height:46px;color:var(--mint);letter-spacing:.02em}
+.entry.empty{color:var(--line)}
+.unit{font-size:18px;color:var(--muted);font-family:var(--mono)}
+
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 10px calc(var(--safe-b) + 10px)}
+.key{background:var(--surface);border:1px solid var(--line);border-radius:14px;height:58px;
+  font-family:var(--mono);font-size:22px;display:flex;align-items:center;justify-content:center}
+.key:active{background:var(--surface-2)}
+.key.go{background:var(--mint);color:#07120D;border-color:var(--mint);font-weight:700}
+.key.sm{font-size:15px;color:var(--muted)}
+.key.zero{grid-column:span 2}
+
+/* ---- results ---- */
+.score{font-family:var(--mono);font-size:56px;font-weight:650;line-height:1}
+.rlist{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+.ritem{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--mint);border-radius:12px;padding:11px 13px;font-family:var(--mono);font-size:14px}
+.ritem.bad{border-left-color:var(--rose)}
+.ritem.skip{border-left-color:var(--muted)}
+.ritem .yours{font-size:12px;color:var(--muted)}
+.btn{display:block;width:100%;background:var(--mint);color:#07120D;font-weight:650;border-radius:16px;padding:16px;text-align:center;margin-top:18px}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);font-weight:500}
+
+/* ---- hacks ---- */
+.hack-body{font-size:15px;line-height:1.62;color:#C9D0DD}
+.hack-body p{margin:12px 0}
+.steps{counter-reset:s;margin:14px 0;display:flex;flex-direction:column;gap:10px}
+.steps li{list-style:none;counter-increment:s;position:relative;padding-left:34px;font-size:15px;line-height:1.55}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:23px;height:23px;border-radius:7px;
+  background:var(--surface-2);color:var(--mint);font-family:var(--mono);font-size:12px;display:flex;align-items:center;justify-content:center}
+.example{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0;
+  font-family:var(--mono);font-size:15px;line-height:1.75;color:#C9D0DD;white-space:pre-line}
+.example b{color:var(--mint);font-weight:600}
+
+/* ---- tab bar ---- */
+.tabs{display:flex;background:rgba(11,13,17,.92);backdrop-filter:blur(18px);
+  border-top:1px solid var(--line);padding:8px 4px calc(var(--safe-b) + 6px)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);padding:5px 0}
+.tab .ic{font-family:var(--mono);font-size:17px;line-height:1}
+.tab span{font-size:10.5px;letter-spacing:.02em}
+.tab.on{color:var(--mint)}
+.hidebar .tabs{display:none}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- PRACTICE -->
+  <section class="page on" id="p-practice">
+    <div class="scroll">
+      <div class="eyebrow">Drill the basics</div>
+      <h1>Practice</h1>
+      <div class="grid" id="catGrid"></div>
+    </div>
+  </section>
+
+  <!-- CATEGORY DETAIL -->
+  <section class="page" id="p-cat">
+    <div class="scroll">
+      <button class="back" onclick="goTab('practice')">‹ Back</button>
+      <div class="eyebrow" id="catEyebrow"></div>
+      <h1 id="catTitle"></h1>
+      <div class="stats" id="catStats"></div>
+      <h2>Choose a level</h2>
+      <div id="catLevels"></div>
+    </div>
+  </section>
+
+  <!-- HACKS -->
+  <section class="page" id="p-hacks">
+    <div class="scroll">
+      <div class="eyebrow">Shortcuts worth memorizing</div>
+      <h1>Math Hacks</h1>
+      <div id="hackList"></div>
+    </div>
+  </section>
+
+  <!-- HACK DETAIL -->
+  <section class="page" id="p-hack">
+    <div class="scroll">
+      <button class="back" onclick="goTab('hacks')">‹ Back</button>
+      <div class="eyebrow" id="hackEyebrow"></div>
+      <h1 id="hackTitle"></h1>
+      <div class="hack-body" id="hackBody"></div>
+      <button class="btn" id="hackStart">Practice this hack</button>
+    </div>
+  </section>
+
+  <!-- CASE MATH -->
+  <section class="page" id="p-case">
+    <div class="scroll">
+      <div class="eyebrow">Interview-style arithmetic</div>
+      <h1>Case Math</h1>
+      <div id="caseList"></div>
+    </div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section class="page" id="p-progress">
+    <div class="scroll">
+      <div class="eyebrow">All time</div>
+      <h1>Progress</h1>
+      <div class="stats" id="progTop"></div>
+      <h2>By category</h2>
+      <div id="progList"></div>
+      <button class="btn ghost" onclick="resetAll()">Reset all stats</button>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="page" id="p-quiz">
+    <div id="quiz" style="display:flex;flex-direction:column;height:100%">
+      <div class="qbar">
+        <button onclick="quitQuiz()">✕</button>
+        <div class="track"><div class="fill" id="qFill"></div></div>
+        <div class="count" id="qCount"></div>
+        <button onclick="skipQ()" title="Skip">⏭</button>
+      </div>
+      <div class="qbody">
+        <div class="qlabel" id="qLabel"></div>
+        <div class="prompt" id="qPrompt"></div>
+        <div class="entry empty" id="qEntry">–</div>
+      </div>
+      <div class="pad">
+        <button class="key" onclick="tap('7')">7</button>
+        <button class="key" onclick="tap('8')">8</button>
+        <button class="key" onclick="tap('9')">9</button>
+        <button class="key sm" onclick="clearEntry()">CLR</button>
+        <button class="key" onclick="tap('4')">4</button>
+        <button class="key" onclick="tap('5')">5</button>
+        <button class="key" onclick="tap('6')">6</button>
+        <button class="key sm" onclick="back()">⌫</button>
+        <button class="key" onclick="tap('1')">1</button>
+        <button class="key" onclick="tap('2')">2</button>
+        <button class="key" onclick="tap('3')">3</button>
+        <button class="key sm" onclick="tap('-')">±</button>
+        <button class="key zero" onclick="tap('0')">0</button>
+        <button class="key" onclick="tap('.')">.</button>
+        <button class="key go" onclick="submit()">➤</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="page" id="p-results">
+    <div class="scroll">
+      <div class="eyebrow" id="rEyebrow"></div>
+      <div class="score" id="rScore"></div>
+      <div class="stats" style="margin-top:18px" id="rStats"></div>
+      <button class="btn" onclick="restartSame()">Run another 30</button>
+      <button class="btn ghost" onclick="doneResults()">Back to menu</button>
+      <h2>Every question</h2>
+      <div class="rlist" id="rList"></div>
+    </div>
+  </section>
+
+  <nav class="tabs" id="tabs"></nav>
+</div>
+
+<script>
+/* ============ storage (degrades gracefully) ============ */
+const DB = (()=>{ let m={}; try{ m=JSON.parse(localStorage.getItem('mm')||'{}'); }catch(e){}
+  return { d:m, save(){ try{ localStorage.setItem('mm',JSON.stringify(m)); }catch(e){} } };})();
+DB.d.stats = DB.d.stats || {};
+DB.d.days  = DB.d.days  || [];
+
+function today(){ return new Date().toISOString().slice(0,10); }
+function markDay(){ const t=today(); if(!DB.d.days.includes(t)){ DB.d.days.push(t); DB.d.days=DB.d.days.slice(-400);} }
+function dayStreak(){
+  const set=new Set(DB.d.days); const d=new Date();
+  if(!set.has(d.toISOString().slice(0,10))) d.setDate(d.getDate()-1);
+  let n=0;
+  while(set.has(d.toISOString().slice(0,10))){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function record(key,correct,ms){
+  const s = DB.d.stats[key] = DB.d.stats[key] || {n:0,c:0,ms:0};
+  s.n++; if(correct) s.c++; s.ms+=ms; DB.save();
+}
+function statOf(key){ return DB.d.stats[key] || {n:0,c:0,ms:0}; }
+
+/* ============ random helpers (anti-streak) ============ */
+const R = (a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick = a=>a[Math.floor(Math.random()*a.length)];
+// "fresh" avoids repeating recently used values so you don't get five ×2 in a row
+function fresh(gen, memory, span){
+  span = span || 4; let v;
+  for(let i=0;i<24;i++){ v=gen(); if(!memory.includes(v)) break; }
+  memory.push(v); if(memory.length>span) memory.shift();
+  return v;
+}
+const digits = d => R(Math.pow(10,d-1), Math.pow(10,d)-1);
+// operand generator that never yields 0 or 1
+function operand(d, mem){
+  return fresh(()=>{ let v = d===1 ? R(2,9) : digits(d); return v<2?2:v; }, mem);
+}
+const round = (x,p=2)=>Math.round(x*Math.pow(10,p))/Math.pow(10,p);
+const fmt = n => Number.isInteger(n) ? n.toLocaleString('en-US') : round(n,2).toString();
+
+/* ============ question generators ============ */
+// each returns {label, text, answer, unit, note}
+const M = {}; // per-level memories
+
+function mem(k){ return (M[k] = M[k] || {a:[],b:[]}); }
+
+const GEN = {
+  add:(d1,d2,key)=>{ const m=mem(key); const a=operand(d1,m.a), b=operand(d2,m.b);
+    return {label:`Addition · ${d1} digit + ${d2} digit`, text:`${fmt(a)} + ${fmt(b)}`, answer:a+b}; },
+
+  sub:(d1,d2,key)=>{ const m=mem(key); let a=operand(d1,m.a), b=operand(d2,m.b);
+    if(b>a){ const t=a; a=b; b=t; } if(a===b) a+=R(2,9);
+    return {label:`Subtraction · ${d1} digit − ${d2} digit`, text:`${fmt(a)} − ${fmt(b)}`, answer:a-b}; },
+
+  mul:(d1,d2,key)=>{ const m=mem(key); const a=operand(d1,m.a), b=operand(d2,m.b);
+    return {label:`Multiplication · ${d1} digit × ${d2} digit`, text:`${fmt(a)} × ${fmt(b)}`, answer:a*b}; },
+
+  div:(dq,dd,key,minN)=>{ const m=mem(key); let divisor,q,n,tries=0;
+    do{ divisor=operand(dd,m.b); q=operand(dq,m.a); n=divisor*q; tries++; }
+    while(minN && n<minN && tries<40);
+    return {label:`Division · ${String(n).length} digit ÷ ${dd} digit, exact`, text:`${fmt(n)} ÷ ${fmt(divisor)}`, answer:q}; },
+
+  pctOf:(key)=>{ const m=mem(key); const p=fresh(()=>pick([5,10,12.5,15,20,25,30,40,60,75,80,90]),m.a,5);
+    const base=fresh(()=>R(2,80)*(pick([10,20,25,40,50])),m.b);
+    return {label:'Percentages · part of a whole', text:`${p}% of ${fmt(base)}`, answer:round(base*p/100,2)}; },
+
+  pctWhat:(key)=>{ const m=mem(key); const whole=fresh(()=>pick([200,250,400,500,800,1200,1600,2000,2500]),m.b,4);
+    const p=fresh(()=>pick([4,5,8,10,12,15,20,25,30,35,40,60,75]),m.a,5);
+    return {label:'Percentages · what percent', text:`${fmt(whole*p/100)} is what % of ${fmt(whole)}`, answer:p, unit:'%'}; },
+
+  pctChange:(key)=>{ const m=mem(key); const base=fresh(()=>pick([200,250,400,500,600,800,1000,1500,2000]),m.b,4);
+    const p=fresh(()=>pick([5,10,15,20,25,30,40,50]),m.a,5); const up=Math.random()<.5;
+    const val=up?base*(1+p/100):base*(1-p/100);
+    return {label:'Percentages · change', text:`${fmt(base)} ${up?'up':'down'} ${p}%`, answer:round(val,2)}; },
+};
+
+/* ============ categories ============ */
+const CATS = [
+  {id:'mixed', glyph:'±×÷', name:'Mixed Practice', sub:'Everything, shuffled', tint:'tint-add',
+   levels:[
+     {id:'mixed-easy', t:'Warm-up', d:'2 digit work, all four operations', pill:'easy'},
+     {id:'mixed-mid',  t:'Standard', d:'2–3 digit, plus percentages', pill:'medium'},
+     {id:'mixed-hard', t:'Ruthless', d:'3 digit, division and % included', pill:'hard'},
+   ]},
+  {id:'add', glyph:'7+4', name:'Addition', sub:'Carry chains and running totals', tint:'tint-add',
+   levels:[
+     {id:'add-22', t:'2 digit + 2 digit', d:'e.g. 47 + 68', pill:'beginner'},
+     {id:'add-32', t:'3 digit + 2 digit', d:'e.g. 486 + 57', pill:'intermediate'},
+     {id:'add-33', t:'3 digit + 3 digit', d:'e.g. 674 + 289', pill:'advanced'},
+     {id:'add-44', t:'4 digit + 4 digit', d:'e.g. 3,482 + 6,719', pill:'expert'},
+   ]},
+  {id:'sub', glyph:'9−4', name:'Subtraction', sub:'Borrowing without slowing down', tint:'tint-sub',
+   levels:[
+     {id:'sub-22', t:'2 digit − 2 digit', d:'e.g. 83 − 47', pill:'beginner'},
+     {id:'sub-32', t:'3 digit − 2 digit', d:'e.g. 512 − 68', pill:'intermediate'},
+     {id:'sub-33', t:'3 digit − 3 digit', d:'e.g. 804 − 379', pill:'advanced'},
+     {id:'sub-44', t:'4 digit − 4 digit', d:'e.g. 7,214 − 3,689', pill:'expert'},
+   ]},
+  {id:'mul', glyph:'7×6', name:'Multiplication', sub:'Tables through full 3 × 3', tint:'tint-mul',
+   levels:[
+     {id:'mul-11', t:'1 digit × 1 digit', d:'The tables, 2 through 9', pill:'beginner'},
+     {id:'mul-21', t:'2 digit × 1 digit', d:'e.g. 47 × 6', pill:'beginner'},
+     {id:'mul-22', t:'2 digit × 2 digit', d:'e.g. 34 × 27', pill:'intermediate'},
+     {id:'mul-31', t:'3 digit × 1 digit', d:'e.g. 428 × 7', pill:'intermediate'},
+     {id:'mul-32', t:'3 digit × 2 digit', d:'e.g. 316 × 24', pill:'advanced'},
+     {id:'mul-33', t:'3 digit × 3 digit', d:'e.g. 214 × 386', pill:'expert'},
+   ]},
+  {id:'div', glyph:'42÷6', name:'Division', sub:'Always exact, never by 0 or 1', tint:'tint-div',
+   levels:[
+     {id:'div-21', t:'2 digit ÷ 1 digit', d:'e.g. 84 ÷ 7', pill:'beginner'},
+     {id:'div-31', t:'3 digit ÷ 1 digit', d:'e.g. 432 ÷ 6', pill:'intermediate'},
+     {id:'div-32', t:'3 digit ÷ 2 digit', d:'e.g. 736 ÷ 23', pill:'advanced'},
+     {id:'div-42', t:'4 digit ÷ 2 digit', d:'e.g. 5,templates', pill:'expert'},
+   ]},
+  {id:'pct', glyph:'15%', name:'Percentages', sub:'Of, what percent, and change', tint:'tint-pct',
+   levels:[
+     {id:'pct-of', t:'Percent of a number', d:'e.g. 15% of 800', pill:'beginner'},
+     {id:'pct-what', t:'What percent is it', d:'e.g. 120 is what % of 800', pill:'intermediate'},
+     {id:'pct-chg', t:'Increase and decrease', d:'e.g. 800 up 25%', pill:'advanced'},
+     {id:'pct-all', t:'All three, shuffled', d:'Mixed percentage drill', pill:'expert'},
+   ]},
+];
+CATS.find(c=>c.id==='div').levels[3].d='e.g. 5,376 ÷ 24';
+
+function buildQ(levelId){
+  switch(levelId){
+    case 'add-22': return GEN.add(2,2,levelId);
+    case 'add-32': return GEN.add(3,2,levelId);
+    case 'add-33': return GEN.add(3,3,levelId);
+    case 'add-44': return GEN.add(4,4,levelId);
+    case 'sub-22': return GEN.sub(2,2,levelId);
+    case 'sub-32': return GEN.sub(3,2,levelId);
+    case 'sub-33': return GEN.sub(3,3,levelId);
+    case 'sub-44': return GEN.sub(4,4,levelId);
+    case 'mul-11': return GEN.mul(1,1,levelId);
+    case 'mul-21': return GEN.mul(2,1,levelId);
+    case 'mul-22': return GEN.mul(2,2,levelId);
+    case 'mul-31': return GEN.mul(3,1,levelId);
+    case 'mul-32': return GEN.mul(3,2,levelId);
+    case 'mul-33': return GEN.mul(3,3,levelId);
+    case 'div-21': return GEN.div(1,1,levelId,10);
+    case 'div-31': return GEN.div(2,1,levelId,100);
+    case 'div-32': return GEN.div(1,2,levelId,100);
+    case 'div-42': return GEN.div(2,2,levelId,1000);
+    case 'pct-of': return GEN.pctOf(levelId);
+    case 'pct-what': return GEN.pctWhat(levelId);
+    case 'pct-chg': return GEN.pctChange(levelId);
+    case 'pct-all': return buildQ(pick(['pct-of','pct-what','pct-chg']));
+    case 'mixed-easy': return buildQ(pick(['add-22','sub-22','mul-21','div-21','mul-11']));
+    case 'mixed-mid':  return buildQ(pick(['add-32','sub-32','mul-22','div-31','pct-of','pct-what']));
+    case 'mixed-hard': return buildQ(pick(['add-33','sub-33','mul-32','mul-33','div-32','div-42','pct-chg','pct-what']));
+    default:
+      if(HACKS[levelId]) return HACKS[levelId].gen();
+      if(CASES[levelId]) return CASES[levelId].gen();
+      return GEN.mul(2,2,'fallback');
+  }
+}
+
+/* ============ hacks ============ */
+const HACKS = {
+  'h-11':{name:'Multiply by 11', eyebrow:'Two digits, one pass',
+    body:`<p>Any two-digit number times 11 is the outer digits with their sum dropped in the middle.</p>
+    <ol class="steps"><li>Split the digits apart: 43 becomes 4 _ 3.</li>
+    <li>Add them: 4 + 3 = 7.</li><li>Put the sum in the gap: 473.</li>
+    <li>If the sum is 10 or more, carry the 1 into the left digit: 78 × 11 → 7 (15) 8 → 858.</li></ol>
+    <div class="example">43 × 11
+4 + 3 = 7
+→ <b>473</b>
+
+78 × 11
+7 + 8 = 15 → carry
+→ <b>858</b></div>`,
+    gen:()=>{ const m=mem('h-11'); const a=fresh(()=>R(12,98),m.a,6);
+      return {label:'×11 shortcut', text:`${a} × 11`, answer:a*11}; }},
+
+  'h-5':{name:'Multiply by 5', eyebrow:'Halve, then move the decimal',
+    body:`<p>Five is just ten halved, and multiplying by ten is free.</p>
+    <ol class="steps"><li>Halve the number.</li><li>Multiply that by 10.</li>
+    <li>Odd numbers land on a .5, which becomes a 5 at the end.</li></ol>
+    <div class="example">48 × 5
+48 ÷ 2 = 24 → 24 × 10
+→ <b>240</b>
+
+37 × 5
+37 ÷ 2 = 18.5 → ×10
+→ <b>185</b></div>`,
+    gen:()=>{ const m=mem('h-5'); const a=fresh(()=>R(12,199),m.a,6);
+      return {label:'×5 shortcut', text:`${a} × 5`, answer:a*5}; }},
+
+  'h-25':{name:'Multiply by 25', eyebrow:'Quarters of a hundred',
+    body:`<p>25 is 100 ÷ 4. Multiply by 100, then quarter it — or quarter it first if that is cleaner.</p>
+    <ol class="steps"><li>Take the number × 100.</li><li>Divide by 4, halving twice.</li></ol>
+    <div class="example">36 × 25
+3,600 ÷ 4
+1,800 → <b>900</b></div>`,
+    gen:()=>{ const m=mem('h-25'); const a=fresh(()=>R(8,120),m.a,6);
+      return {label:'×25 shortcut', text:`${a} × 25`, answer:a*25}; }},
+
+  'h-9':{name:'Multiply by 9', eyebrow:'Ten minus one',
+    body:`<p>Nine is one short of ten, so take ten of the number and subtract one of it.</p>
+    <ol class="steps"><li>Multiply by 10.</li><li>Subtract the original number.</li></ol>
+    <div class="example">47 × 9
+470 − 47
+→ <b>423</b></div>`,
+    gen:()=>{ const m=mem('h-9'); const a=fresh(()=>R(12,99),m.a,6);
+      return {label:'×9 shortcut', text:`${a} × 9`, answer:a*9}; }},
+
+  'h-sq5':{name:'Square anything ending in 5', eyebrow:'Two moves, always',
+    body:`<p>Squares of numbers ending in 5 always end in 25, and the front comes from one small multiplication.</p>
+    <ol class="steps"><li>Take the digits before the 5 — call it n.</li>
+    <li>Compute n × (n + 1).</li><li>Write 25 on the end.</li></ol>
+    <div class="example">65²
+6 × 7 = 42
+→ <b>4,225</b>
+
+95²
+9 × 10 = 90
+→ <b>9,025</b></div>`,
+    gen:()=>{ const m=mem('h-sq5'); const n=fresh(()=>R(2,19),m.a,6); const a=n*10+5;
+      return {label:'Ending-in-5 squares', text:`${a}²`, answer:a*a}; }},
+
+  'h-diffsq':{name:'Difference of squares', eyebrow:'For pairs around a round number',
+    body:`<p>When two numbers sit an equal step either side of a round middle, use (m − d)(m + d) = m² − d².</p>
+    <ol class="steps"><li>Find the midpoint m.</li><li>Find the gap d to each number.</li>
+    <li>Answer is m² − d².</li></ol>
+    <div class="example">47 × 53
+midpoint 50, gap 3
+2,500 − 9
+→ <b>2,491</b></div>`,
+    gen:()=>{ const m=mem('h-diffsq'); const mid=fresh(()=>R(3,19)*10,m.a,5); const d=fresh(()=>R(2,8),m.b,4);
+      return {label:'Difference of squares', text:`${mid-d} × ${mid+d}`, answer:(mid-d)*(mid+d)}; }},
+
+  'h-double':{name:'Doubling and halving', eyebrow:'Reshape the problem',
+    body:`<p>Double one factor and halve the other and the product does not move. Use it to turn an awkward factor into a friendly one.</p>
+    <ol class="steps"><li>Halve the even factor.</li><li>Double the other.</li><li>Repeat until one side is trivial.</li></ol>
+    <div class="example">14 × 35
+7 × 70
+→ <b>490</b></div>`,
+    gen:()=>{ const m=mem('h-double'); const a=fresh(()=>R(3,9)*2,m.a,5); const b=fresh(()=>R(15,45),m.b,5);
+      return {label:'Double and halve', text:`${a} × ${b}`, answer:a*b}; }},
+
+  'h-pctflip':{name:'Flip the percentage', eyebrow:'x% of y = y% of x',
+    body:`<p>Percentages commute. When one side is ugly and the other is easy, swap them.</p>
+    <ol class="steps"><li>Read the problem as a% of b.</li><li>Rewrite it as b% of a.</li>
+    <li>Solve whichever version is easier.</li></ol>
+    <div class="example">4% of 75
+= 75% of 4
+→ <b>3</b>
+
+18% of 50
+= 50% of 18
+→ <b>9</b></div>`,
+    gen:()=>{ const m=mem('h-pctflip'); const p=fresh(()=>pick([2,4,6,8,12,14,16,18,22,24]),m.a,5);
+      const b=fresh(()=>pick([25,50,150,200,250,500]),m.b,4);
+      return {label:'Percentage flip', text:`${p}% of ${b}`, answer:round(p*b/100,2)}; }},
+
+  'h-div5':{name:'Divide by 5', eyebrow:'Double, then move the decimal',
+    body:`<p>Dividing by 5 is the same as multiplying by 2 and dividing by 10.</p>
+    <ol class="steps"><li>Double the number.</li><li>Divide by 10.</li></ol>
+    <div class="example">340 ÷ 5
+680 ÷ 10
+→ <b>68</b></div>`,
+    gen:()=>{ const m=mem('h-div5'); const q=fresh(()=>R(6,180),m.a,6);
+      return {label:'÷5 shortcut', text:`${fmt(q*5)} ÷ 5`, answer:q}; }},
+
+  'h-15':{name:'Multiply by 15', eyebrow:'Ten plus half of ten',
+    body:`<p>15 is 10 + 5, and 5 is half of 10. So take ten of it, add half of that.</p>
+    <ol class="steps"><li>Multiply by 10.</li><li>Halve that result.</li><li>Add the two.</li></ol>
+    <div class="example">24 × 15
+240 + 120
+→ <b>360</b></div>`,
+    gen:()=>{ const m=mem('h-15'); const a=fresh(()=>R(6,96),m.a,6);
+      return {label:'×15 shortcut', text:`${a} × 15`, answer:a*15}; }},
+};
+
+/* ============ case interview math ============ */
+function money(n){ return '$' + fmt(n); }
+const CASES = {
+  'c-rev':{name:'Revenue build', d:'Price × volume, the first line of every model',
+    gen:()=>{ const m=mem('c-rev'); const price=fresh(()=>pick([12,15,18,20,24,25,30,35,40,45,60]),m.a,5);
+      const units=fresh(()=>pick([1200,1500,2000,2400,3000,3500,4000,5000,7500]),m.b,4);
+      return {label:'Revenue build', text:`${money(price)} × ${fmt(units)} units`,
+        note:'A store sells the item at this price and moves this many units a month. Monthly revenue?', answer:price*units}; }},
+
+  'c-margin':{name:'Margin and profit', d:'Revenue, cost, and what is left over',
+    gen:()=>{ const m=mem('c-margin'); const rev=fresh(()=>pick([2000,2500,4000,5000,8000,12000,20000]),m.a,4);
+      const mgn=fresh(()=>pick([5,8,10,12,15,20,25,30,40]),m.b,5);
+      return {label:'Profit from margin', text:`${money(rev)} revenue · ${mgn}% margin`,
+        note:'How much profit does that produce?', answer:round(rev*mgn/100,2)}; }},
+
+  'c-growth':{name:'Growth applied', d:'Grow a base, then read the new level',
+    gen:()=>{ const m=mem('c-growth'); const base=fresh(()=>pick([400,600,800,1200,1500,2000,2500,4000]),m.a,4);
+      const g=fresh(()=>pick([5,10,15,20,25,30,40,50]),m.b,5);
+      return {label:'Growth applied', text:`${fmt(base)} growing ${g}%`,
+        note:'Sales grow by this rate over the year. What is the new level?', answer:round(base*(1+g/100),2)}; }},
+
+  'c-break':{name:'Breakeven volume', d:'Fixed cost ÷ contribution per unit',
+    gen:()=>{ const m=mem('c-break'); const contrib=fresh(()=>pick([2,4,5,8,10,12,20,25]),m.a,5);
+      const units=fresh(()=>pick([200,400,500,800,1000,1500,2000,2500]),m.b,4);
+      return {label:'Breakeven volume', text:`${money(contrib*units)} fixed ÷ ${money(contrib)} per unit`,
+        note:'Each unit contributes this much after variable cost. How many units to cover fixed costs?', answer:units}; }},
+
+  'c-share':{name:'Market share', d:'Your slice of a sized market',
+    gen:()=>{ const m=mem('c-share'); const mkt=fresh(()=>pick([200,400,500,800,1000,1600,2000,2500]),m.a,4);
+      const sh=fresh(()=>pick([4,5,8,10,12,15,20,25,30,40]),m.b,5);
+      return {label:'Market share', text:`${sh}% of a ${fmt(mkt)}M market`,
+        note:'Answer in millions of dollars.', answer:round(mkt*sh/100,2), unit:'M'}; }},
+
+  'c-size':{name:'Market sizing chain', d:'Population → adoption → spend',
+    gen:()=>{ const m=mem('c-size'); const pop=fresh(()=>pick([20,25,40,50,60,80,100,120]),m.a,4);
+      const rate=fresh(()=>pick([5,10,15,20,25,30,40,50]),m.b,5); const spend=pick([12,15,20,24,25,30,40,50]);
+      const users=pop*rate/100;
+      return {label:'Market sizing', text:`${pop}M people · ${rate}% buy · ${money(spend)} each`,
+        note:'Total market size in millions of dollars.', answer:round(users*spend,2), unit:'M'}; }},
+
+  'c-pcchg':{name:'Percent change read', d:'Two numbers, one growth rate',
+    gen:()=>{ const m=mem('c-pcchg'); const base=fresh(()=>pick([200,250,400,500,800,1000,1250,2000]),m.a,4);
+      const p=fresh(()=>pick([5,10,20,25,40,50,60,75]),m.b,5); const up=Math.random()<.5;
+      const now=up?base*(1+p/100):base*(1-p/100);
+      return {label:'Percent change', text:`${fmt(base)} → ${fmt(now)}`,
+        note:`Percent change from the first figure to the second. Use ± for a decline.`,
+        answer: up?p:-p, unit:'%'}; }},
+
+  'c-unit':{name:'Per-unit economics', d:'Split a total across a base',
+    gen:()=>{ const m=mem('c-unit'); const per=fresh(()=>pick([3,4,6,8,12,15,20,24,30]),m.a,5);
+      const n=fresh(()=>pick([25,40,50,80,120,200,250,400]),m.b,4);
+      return {label:'Cost per unit', text:`${money(per*n)} across ${fmt(n)} units`,
+        note:'What does each unit cost?', answer:per}; }},
+
+  'c-mixed':{name:'Full case drill', d:'All of the above, shuffled — the real thing',
+    gen:()=>CASES[pick(['c-rev','c-margin','c-growth','c-break','c-share','c-size','c-pcchg','c-unit'])].gen()},
+};
+
+/* ============ rendering ============ */
+const $ = id=>document.getElementById(id);
+
+const TABS = [
+  {id:'practice', ic:'∑', label:'Practice'},
+  {id:'hacks',    ic:'⚡', label:'Hacks'},
+  {id:'case',     ic:'◧', label:'Case Math'},
+  {id:'progress', ic:'◔', label:'Progress'},
+];
+$('tabs').innerHTML = TABS.map(t=>
+  `<button class="tab" data-t="${t.id}" onclick="goTab('${t.id}')"><div class="ic">${t.ic}</div><span>${t.label}</span></button>`).join('');
+
+function show(page, tabId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  $('p-'+page).classList.add('on');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.t===tabId));
+  document.getElementById('app').classList.toggle('hidebar', page==='quiz');
+  $('p-'+page).querySelector('.scroll') && ($('p-'+page).querySelector('.scroll').scrollTop=0);
+}
+let currentTab='practice';
+function goTab(t){
+  currentTab=t;
+  if(t==='progress') renderProgress();
+  show(t==='practice'?'practice':t==='hacks'?'hacks':t==='case'?'case':'progress', t);
+}
+
+$('catGrid').innerHTML = CATS.map(c=>`
+  <button class="card ${c.tint} ${c.id==='mixed'?'wide':''}" onclick="openCat('${c.id}')">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="glyph">${c.glyph}</div>
+      <div class="name">${c.name}</div>
+      <div class="sub">${c.sub}</div>
+    </div>${c.id==='mixed'?'<div class="chev">›</div>':''}
+  </button>`).join('');
+
+function openCat(id){
+  const c = CATS.find(x=>x.id===id);
+  $('catEyebrow').textContent = c.sub;
+  $('catTitle').textContent = c.name;
+  const keys = c.levels.map(l=>l.id);
+  const agg = keys.reduce((a,k)=>{const s=statOf(k);return{n:a.n+s.n,c:a.c+s.c,ms:a.ms+s.ms};},{n:0,c:0,ms:0});
+  $('catStats').innerHTML = `
+    <div class="stat"><b>${dayStreak()}</b><span>day streak</span></div>
+    <div class="stat"><b>${agg.n?Math.round(agg.c/agg.n*100):0}%</b><span>accuracy</span></div>
+    <div class="stat"><b>${agg.n?(agg.ms/agg.n/1000).toFixed(1)+'s':'–'}</b><span>avg time</span></div>`;
+  $('catLevels').innerHTML = c.levels.map(l=>{
+    const s=statOf(l.id);
+    return `<button class="row" onclick="startQuiz('${l.id}','${c.name}')">
+      <div class="l"><div class="t">${l.t}</div><div class="d">${l.d}</div></div>
+      <div class="pill">${s.n?Math.round(s.c/s.n*100)+'%':l.pill}</div></button>`;
+  }).join('');
+  show('cat','practice');
+}
+
+$('hackList').innerHTML = Object.entries(HACKS).map(([id,h])=>`
+  <button class="row" onclick="openHack('${id}')">
+    <div class="l"><div class="t">${h.name}</div><div class="d">${h.eyebrow}</div></div>
+    <div class="chev">›</div></button>`).join('');
+
+function openHack(id){
+  const h=HACKS[id];
+  $('hackEyebrow').textContent=h.eyebrow;
+  $('hackTitle').textContent=h.name;
+  $('hackBody').innerHTML=h.body;
+  $('hackStart').onclick=()=>startQuiz(id,h.name);
+  show('hack','hacks');
+}
+
+$('caseList').innerHTML = Object.entries(CASES).map(([id,c])=>`
+  <button class="row" onclick="startQuiz('${id}','${c.name}')">
+    <div class="l"><div class="t">${c.name}</div><div class="d">${c.d}</div></div>
+    <div class="pill">${statOf(id).n?Math.round(statOf(id).c/statOf(id).n*100)+'%':'start'}</div></button>`).join('');
+
+function renderProgress(){
+  const all=Object.values(DB.d.stats).reduce((a,s)=>({n:a.n+s.n,c:a.c+s.c,ms:a.ms+s.ms}),{n:0,c:0,ms:0});
+  $('progTop').innerHTML=`
+    <div class="stat"><b>${all.n}</b><span>questions</span></div>
+    <div class="stat"><b>${all.n?Math.round(all.c/all.n*100):0}%</b><span>accuracy</span></div>
+    <div class="stat"><b>${all.n?(all.ms/all.n/1000).toFixed(1)+'s':'–'}</b><span>avg time</span></div>`;
+  const groups=[...CATS.map(c=>({name:c.name,keys:c.levels.map(l=>l.id)})),
+    {name:'Math Hacks',keys:Object.keys(HACKS)},{name:'Case Math',keys:Object.keys(CASES)}];
+  $('progList').innerHTML=groups.map(g=>{
+    const s=g.keys.reduce((a,k)=>{const x=statOf(k);return{n:a.n+x.n,c:a.c+x.c,ms:a.ms+x.ms};},{n:0,c:0,ms:0});
+    return `<div class="row"><div class="l"><div class="t">${g.name}</div>
+      <div class="d">${s.n?s.n+' answered · '+(s.ms/s.n/1000).toFixed(1)+'s avg':'Not started'}</div></div>
+      <div class="pill">${s.n?Math.round(s.c/s.n*100)+'%':'–'}</div></div>`;
+  }).join('');
+}
+function resetAll(){ if(confirm('Erase all stats and streaks?')){ DB.d.stats={}; DB.d.days=[]; DB.save(); renderProgress(); } }
+
+/* ============ quiz engine ============ */
+const TOTAL=30;
+let Q={list:[],i:0,entry:'',t0:0,key:'',title:'',log:[]};
+
+function startQuiz(levelId,title){
+  Q={list:[],i:0,entry:'',t0:0,key:levelId,title:title,log:[]};
+  const seen=[];
+  while(Q.list.length<TOTAL){
+    const q=buildQ(levelId);
+    if(seen.includes(q.text) && Q.list.length<TOTAL-2) continue;   // no duplicate prompts
+    seen.push(q.text); Q.list.push(q);
+  }
+  show('quiz',currentTab);
+  renderQ();
+}
+function renderQ(){
+  const q=Q.list[Q.i];
+  $('qCount').textContent=`${Q.i+1} of ${TOTAL}`;
+  $('qFill').style.width=((Q.i)/TOTAL*100)+'%';
+  $('qLabel').textContent=q.label;
+  $('qPrompt').innerHTML=q.text + (q.unit?` <span class="unit">${q.unit==='%'?'%':'($M)'}</span>`:'') +
+    (q.note?`<small>${q.note}</small>`:'');
+  Q.entry=''; paint(); Q.t0=Date.now();
+}
+function paint(){
+  const e=$('qEntry');
+  e.textContent = Q.entry===''?'–':Q.entry;
+  e.classList.toggle('empty', Q.entry==='');
+}
+function tap(ch){
+  if(ch==='-'){ Q.entry = Q.entry.startsWith('-') ? Q.entry.slice(1) : '-'+Q.entry; paint(); return; }
+  if(ch==='.' && Q.entry.includes('.')) return;
+  if(Q.entry.replace('-','').replace('.','').length>=9) return;
+  Q.entry+=ch; paint();
+}
+function back(){ Q.entry=Q.entry.slice(0,-1); paint(); }
+function clearEntry(){ Q.entry=''; paint(); }
+
+function commit(skipped){
+  const q=Q.list[Q.i], ms=Date.now()-Q.t0;
+  const val = skipped ? null : parseFloat(Q.entry);
+  const correct = !skipped && Math.abs(val-q.answer) < 0.005;
+  Q.log.push({q, given: skipped?null:Q.entry, correct, skipped, ms});
+  record(Q.key, correct, ms);
+  if(navigator.vibrate) navigator.vibrate(8);
+  Q.i++;
+  if(Q.i>=TOTAL){ markDay(); DB.save(); finish(); } else renderQ();
+}
+function submit(){ if(Q.entry===''||Q.entry==='-'||Q.entry==='.') return; commit(false); }
+function skipQ(){ commit(true); }
+function quitQuiz(){ if(confirm('End this set? Progress in it is lost.')) goTab(currentTab); }
+
+function finish(){
+  const right=Q.log.filter(l=>l.correct).length;
+  const avg=(Q.log.reduce((a,l)=>a+l.ms,0)/TOTAL/1000).toFixed(1);
+  const skipped=Q.log.filter(l=>l.skipped).length;
+  $('rEyebrow').textContent=Q.title+' · set of 30';
+  $('rScore').textContent=`${right}/30`;
+  $('rStats').innerHTML=`
+    <div class="stat"><b>${Math.round(right/TOTAL*100)}%</b><span>accuracy</span></div>
+    <div class="stat"><b>${avg}s</b><span>avg time</span></div>
+    <div class="stat"><b>${skipped}</b><span>skipped</span></div>`;
+  $('rList').innerHTML=Q.log.map((l,i)=>`
+    <div class="ritem ${l.correct?'':(l.skipped?'skip':'bad')}">
+      <div>${i+1}. ${l.q.text}${l.q.unit==='%'?' (%)':''}</div>
+      <div style="text-align:right">
+        <div>${fmt(l.q.answer)}</div>
+        ${l.correct?'':`<div class="yours">${l.skipped?'skipped':'you: '+l.given}</div>`}
+      </div></div>`).join('');
+  show('results',currentTab);
+}
+function restartSame(){ startQuiz(Q.key,Q.title); }
+function doneResults(){ goTab(currentTab); }
+
+/* physical keyboard, for desktop testing */
+document.addEventListener('keydown',e=>{
+  if(!$('p-quiz').classList.contains('on')) return;
+  if(/^[0-9]$/.test(e.key)) tap(e.key);
+  else if(e.key==='.') tap('.');
+  else if(e.key==='Backspace') back();
+  else if(e.key==='Enter') submit();
+  else if(e.key==='Escape') clearEntry();
+});
+
+goTab('practice');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
